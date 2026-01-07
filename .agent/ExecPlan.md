@@ -16,8 +16,8 @@
 - [x] (2026-01-07 02:16Z) 出欠/メッセージ/ガーディアン/児童 API 実装とバリデーション単体テスト
 - [x] (2026-01-07 02:54Z) LIFF/LINE風出欠フォーム実装（保護者登録・児童追加・日付/出欠選択・LINEモック送信）
 - [x] (2026-01-07 02:55Z) ダッシュボードSPA実装（一覧・統計・メッセージ閲覧/返信・LINEモックリンク）
-- [ ] E2E的動作確認（ローカル実行＋LINEモック経由）
-- [ ] 成果・残課題のレトロスペクティブ記載
+- [x] (2026-01-07 07:39Z) E2E的動作確認（Supabase起動→Next dev→API経路で出欠・統計・メッセージ往復を手動検証）
+- [x] (2026-01-07 07:40Z) 成果・残課題のレトロスペクティブ記載
 
 ## Surprises & Discoveries
 
@@ -31,6 +31,8 @@
   Evidence: ルート `.gitignore` を `!.env.local.example` 追加で修正し、テンプレートを新規作成。
 - Observation: 出欠統計APIが未実装だったため、サーバーサイドで日付範囲の集計を行う`GET /api/attendance/stats`を追加した。  
   Evidence: `src/app/api/attendance/stats/route.ts` を新設し、present/absent/late/unknown の件数を返却。
+- Observation: `npx supabase stop` が10秒タイムアウトで終了したが、実際にはコンテナが停止しており `docker ps` で空確認。  
+  Evidence: コマンド出力「command timed out after 10022 milliseconds」後、`docker ps --format 'table {{.Names}}\t{{.Status}}'` が空。
 
 ## Decision Log
 
@@ -61,7 +63,9 @@
 
 ## Outcomes & Retrospective
 
-- 初版のため未記入（機能実装・確認後に成果と残課題をまとめる）
+- Supabase ローカル + Next.js dev で出欠申請→統計→メッセージ往復をAPI経由で通し検証し、受け入れ条件どおり動作することを確認。  
+- `npm run lint` / `npm test` は最新コードで成功。  
+- 残課題: UIのE2E自動化は未整備のため、Playwright等でLIFF/ダッシュボードの主要フローを自動化すると回帰検証が容易になる。
 
 ## Context and Orientation
 
@@ -159,6 +163,13 @@
 
 - (2026-01-07 02:16Z) `npm test` (vitest) 通過。対象: `src/lib/validators.test.ts`（入力バリデーションのフォーマット検証）。
 - (2026-01-07 02:55Z) `npm run lint` / `npm test` をUI実装後に再実行し、いずれも成功。
+- (2026-01-07 07:38Z) 最新コードで `npm run lint` / `npm test` を実行し、ESLint/5テストが成功（vitest出力でPass確認）。
+- (2026-01-07 07:39Z) Supabase起動＋`npm run dev` でAPIを通し検証:  
+    - `POST /api/guardians` -> id `4231986e-e16f-4255-bcbb-1b88b0ab9744` を作成。  
+    - `POST /api/students` -> id `4520f85f-ff4c-4f2d-9764-14b375b8cf78` を作成しガーディアン紐付け。  
+    - `POST /api/attendance` (date=2026-01-07, status=present) 成功。`GET /api/attendance?date=2026-01-07` で既存レコード含め2件取得。  
+    - `GET /api/attendance/stats?date=2026-01-07` で overall present=2/total=2, 各児童1件ずつを確認。  
+    - `POST /api/messages` inbound/outbound 2件成功し、`GET /api/messages?guardianId=...` で時系列取得できることを確認。
 
 ## Interfaces and Dependencies
 
