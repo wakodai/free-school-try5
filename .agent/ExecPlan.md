@@ -14,8 +14,8 @@
 - [x] (2026-01-07 01:33Z) データモデルと初期マイグレーションSQL追加
 - [x] (2026-01-07 01:54Z) Supabase ローカル起動確認・キー取得・`.env.local` 作成・マイグレーション適用
 - [x] (2026-01-07 02:16Z) 出欠/メッセージ/ガーディアン/児童 API 実装とバリデーション単体テスト
-- [ ] LIFF/LINE風出欠フォーム（登録＋日付/児童/出欠選択）実装
-- [ ] ダッシュボードSPA（一覧・統計・メッセージ閲覧/送信・LINEモックリンク）実装
+- [x] (2026-01-07 02:54Z) LIFF/LINE風出欠フォーム実装（保護者登録・児童追加・日付/出欠選択・LINEモック送信）
+- [x] (2026-01-07 02:55Z) ダッシュボードSPA実装（一覧・統計・メッセージ閲覧/返信・LINEモックリンク）
 - [ ] E2E的動作確認（ローカル実行＋LINEモック経由）
 - [ ] 成果・残課題のレトロスペクティブ記載
 
@@ -29,6 +29,8 @@
   Evidence: `docker ps` で supabase_* コンテナが稼働、`supabase status -o json` でキーとURLを取得できた。
 - Observation: `.gitignore` の `.env*` パターンで `.env.local.example` も無視されていたため、例示ファイルをトラッキングできなかった。  
   Evidence: ルート `.gitignore` を `!.env.local.example` 追加で修正し、テンプレートを新規作成。
+- Observation: 出欠統計APIが未実装だったため、サーバーサイドで日付範囲の集計を行う`GET /api/attendance/stats`を追加した。  
+  Evidence: `src/app/api/attendance/stats/route.ts` を新設し、present/absent/late/unknown の件数を返却。
 
 ## Decision Log
 
@@ -49,6 +51,12 @@
   Date/Author: 2026-01-07 / assistant
 - Decision: `GET /api/attendance` は日付または期間指定なしの全件取得を許可せず、`date` か `from/to` 指定を必須とする。  
   Rationale: データ件数が増えた際の無制限フェッチを避け、API利用意図を明確にする。  
+  Date/Author: 2026-01-07 / assistant
+- Decision: 出欠統計はビューではなくAPIルートで集計し、指定日/期間に対する present/absent/late/unknown と児童別の件数を返す。  
+  Rationale: Next.js Route Handler 内で Supabase から必要データのみ取得し計算することで、View/RPCの追加なしに UI から参照できるため。  
+  Date/Author: 2026-01-07 / assistant
+- Decision: LIFF風フォームでは保護者プロフィールをローカルストレージに保存し、再訪時の入力を省略する。  
+  Rationale: LINEログインなしのMVPで入力負荷を避け、家族単位で継続利用しやすくするため。  
   Date/Author: 2026-01-07 / assistant
 
 ## Outcomes & Retrospective
@@ -150,6 +158,7 @@
 ## Artifacts and Notes
 
 - (2026-01-07 02:16Z) `npm test` (vitest) 通過。対象: `src/lib/validators.test.ts`（入力バリデーションのフォーマット検証）。
+- (2026-01-07 02:55Z) `npm run lint` / `npm test` をUI実装後に再実行し、いずれも成功。
 
 ## Interfaces and Dependencies
 

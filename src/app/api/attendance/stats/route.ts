@@ -7,15 +7,16 @@ import { statsQuerySchema } from "@/lib/validators";
 type AttendanceRow = Database["public"]["Tables"]["attendance_requests"]["Row"];
 type StudentRow = Database["public"]["Tables"]["students"]["Row"];
 
-interface AggregatedRow {
-  studentId: string;
-  studentName?: string;
-  grade?: string | null;
+type StatusBuckets = {
   present: number;
   absent: number;
   late: number;
   unknown: number;
   total: number;
+};
+
+function emptyBuckets(): StatusBuckets {
+  return { present: 0, absent: 0, late: 0, unknown: 0, total: 0 };
 }
 
 export async function GET(req: NextRequest) {
@@ -26,14 +27,18 @@ export async function GET(req: NextRequest) {
     return badRequestFromZod(parsed.error);
   }
 
+  const rangeFrom = parsed.data.date ?? parsed.data.from;
+  const rangeTo = parsed.data.date ?? parsed.data.to;
+
+  if (!rangeFrom && !rangeTo) {
+    return jsonError("date もしくは from/to のいずれかを指定してください。", 400);
+  }
+
   const supabase = getSupabaseServerClient();
   let query = supabase
     .from("attendance_requests")
-    .select("student_id, status, student:students(id, name, grade)");
-
-  const { from, to, date } = parsed.data;
-  const rangeFrom = date ?? from;
-  const rangeTo = date ?? to;
+    .select("status, requested_for, student_id, student:students(id, name, grade)")
+    .order("requested_for", { ascending: true });
 
   if (rangeFrom) {
     query = query.gte("requested_for", rangeFrom);
@@ -51,66 +56,39 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const byStudent = new Map<string, AggregatedRow>();
-  const overall = {
-    present: 0,
-    absent: 0,
-    late: 0,
-    unknown: 0,
-    total: 0,
-  };
+  const overall = emptyBuckets();
+  const byStudent = new Map<
+    string,
+    StatusBuckets & { student: Pick<StudentRow, "id" | "name" | "grade"> }
+  >();
 
-  data.forEach((row) => {
-    const student = (row as unknown as AttendanceRow & {
-      student?: StudentRow | null;
-    }).student;
-    const key = row.student_id;
+  data.forEach((row: AttendanceRow & { student?: StudentRow | null }) => {
+    const studentId = row.student_id;
+    const existing =
+      byStudent.get(studentId) ??
+      (() => {
+        const next = {
+          ...emptyBuckets(),
+          student: {
+            id: studentId,
+            name: row.student?.name ?? "未登録の児童",
+            grade: row.student?.grade ?? null,
+          },
+        };
+        byStudent.set(studentId, next);
+        return next;
+      })();
 
-    if (!byStudent.has(key)) {
-      byStudent.set(key, {
-        studentId: key,
-        studentName: student?.name ?? undefined,
-        grade: student?.grade,
-        present: 0,
-        absent: 0,
-        late: 0,
-        unknown: 0,
-        total: 0,
-      });
-    }
+    existing[row.status] += 1;
+    existing.total += 1;
 
-    const target = byStudent.get(key)!;
-    target.total += 1;
+    overall[row.status] += 1;
     overall.total += 1;
-
-    if (row.status === "present") {
-      target.present += 1;
-      overall.present += 1;
-    } else if (row.status === "absent") {
-      target.absent += 1;
-      overall.absent += 1;
-    } else if (row.status === "late") {
-      target.late += 1;
-      overall.late += 1;
-    } else {
-      target.unknown += 1;
-      overall.unknown += 1;
-    }
-  });
-
-  const byStudentList = Array.from(byStudent.values()).sort((a, b) => {
-    if (a.studentName && b.studentName) {
-      return a.studentName.localeCompare(b.studentName, "ja");
-    }
-    return a.studentId.localeCompare(b.studentId);
   });
 
   return NextResponse.json({
-    range: {
-      from: rangeFrom ?? null,
-      to: rangeTo ?? null,
-    },
-    byStudent: byStudentList,
+    range: { from: rangeFrom ?? null, to: rangeTo ?? null },
     overall,
+    byStudent: Array.from(byStudent.values()),
   });
 }

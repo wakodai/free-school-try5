@@ -26,6 +26,8 @@ export interface AttendanceRequest {
   status: AttendanceStatus;
   reason?: string | null;
   createdAt: string;
+  guardian?: { id: string; name: string; phone?: string | null };
+  student?: { id: string; name: string; grade?: string | null };
 }
 
 export interface Message {
@@ -35,4 +37,24 @@ export interface Message {
   direction: MessageDirection;
   body: string;
   createdAt: string;
+  guardian?: { id: string; name: string; phone?: string | null };
+  student?: { id: string; name: string; grade?: string | null };
+}
+
+export interface StatusCounts {
+  present: number;
+  absent: number;
+  late: number;
+  unknown: number;
+  total: number;
+}
+
+export interface AttendanceStats {
+  range: { from: string | null; to: string | null };
+  overall: StatusCounts;
+  byStudent: Array<
+    StatusCounts & {
+      student: { id: string; name: string; grade?: string | null };
+    }
+  >;
 }
