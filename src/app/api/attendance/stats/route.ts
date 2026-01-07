@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse, type NextRequest } from "next/server";
 import { badRequestFromZod, jsonError } from "@/lib/http";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     return jsonError("date もしくは from/to のいずれかを指定してください。", 400);
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseServerClient() as any;
   let query = supabase
     .from("attendance_requests")
     .select("status, requested_for, student_id, student:students(id, name, grade)")

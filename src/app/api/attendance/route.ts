@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse, type NextRequest } from "next/server";
 import { badRequestFromZod, jsonError } from "@/lib/http";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
     return badRequestFromZod(parsed.error);
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseServerClient() as any;
   const rangeFrom = parsed.data.date ?? parsed.data.from;
   const rangeTo = parsed.data.date ?? parsed.data.to;
 
@@ -93,17 +94,19 @@ export async function POST(req: NextRequest) {
     return badRequestFromZod(parsed.error);
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseServerClient() as any;
   const { data, error, status } = await supabase
     .from("attendance_requests")
     .upsert(
-      {
-        guardian_id: parsed.data.guardianId,
-        student_id: parsed.data.studentId,
-        requested_for: parsed.data.requestedFor,
-        status: parsed.data.status,
-        reason: parsed.data.reason ?? null,
-      },
+      [
+        {
+          guardian_id: parsed.data.guardianId,
+          student_id: parsed.data.studentId,
+          requested_for: parsed.data.requestedFor,
+          status: parsed.data.status,
+          reason: parsed.data.reason ?? null,
+        } satisfies Database["public"]["Tables"]["attendance_requests"]["Insert"],
+      ],
       { onConflict: "student_id,requested_for" },
     )
     .select(

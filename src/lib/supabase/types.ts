@@ -27,6 +27,7 @@ export type Database = {
           line_user_id: string | null;
           login_token: string | null;
         }>;
+        Relationships: [];
       };
       students: {
         Row: {
@@ -48,6 +49,7 @@ export type Database = {
           grade: string | null;
           notes: string | null;
         }>;
+        Relationships: [];
       };
       guardian_students: {
         Row: {
@@ -64,6 +66,20 @@ export type Database = {
           guardian_id: UUID;
           student_id: UUID;
         }>;
+        Relationships: [
+          {
+            foreignKeyName: "guardian_students_guardian_id_fkey";
+            columns: ["guardian_id"];
+            referencedRelation: "guardians";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "guardian_students_student_id_fkey";
+            columns: ["student_id"];
+            referencedRelation: "students";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       attendance_requests: {
         Row: {
@@ -91,6 +107,20 @@ export type Database = {
           status: "present" | "absent" | "late" | "unknown";
           reason: string | null;
         }>;
+        Relationships: [
+          {
+            foreignKeyName: "attendance_requests_guardian_id_fkey";
+            columns: ["guardian_id"];
+            referencedRelation: "guardians";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_requests_student_id_fkey";
+            columns: ["student_id"];
+            referencedRelation: "students";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       messages: {
         Row: {
@@ -115,11 +145,37 @@ export type Database = {
           direction: "inbound" | "outbound";
           body: string;
         }>;
+        Relationships: [
+          {
+            foreignKeyName: "messages_guardian_id_fkey";
+            columns: ["guardian_id"];
+            referencedRelation: "guardians";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_student_id_fkey";
+            columns: ["student_id"];
+            referencedRelation: "students";
+            referencedColumns: ["id"];
+          },
+        ];
       };
+    } & {
+      [key: string]:
+        | {
+            Row: Record<string, unknown>;
+            Insert?: Record<string, unknown>;
+            Update?: Record<string, unknown>;
+            Relationships?: unknown[];
+          }
+        | undefined;
     };
     Enums: {
       attendance_status: "present" | "absent" | "late" | "unknown";
       message_direction: "inbound" | "outbound";
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 };
