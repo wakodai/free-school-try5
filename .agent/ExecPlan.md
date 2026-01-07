@@ -13,7 +13,7 @@
 - [x] (2026-01-07 01:32Z) `.env.local.example` 作成と環境変数テンプレート準備
 - [x] (2026-01-07 01:33Z) データモデルと初期マイグレーションSQL追加
 - [x] (2026-01-07 01:54Z) Supabase ローカル起動確認・キー取得・`.env.local` 作成・マイグレーション適用
-- [ ] 出欠API・メッセージAPIの実装と単体テスト
+- [x] (2026-01-07 02:16Z) 出欠/メッセージ/ガーディアン/児童 API 実装とバリデーション単体テスト
 - [ ] LIFF/LINE風出欠フォーム（登録＋日付/児童/出欠選択）実装
 - [ ] ダッシュボードSPA（一覧・統計・メッセージ閲覧/送信・LINEモックリンク）実装
 - [ ] E2E的動作確認（ローカル実行＋LINEモック経由）
@@ -27,6 +27,8 @@
   Evidence: `tmp-app/` に Next.js 初期ファイルが生成されており、その後ルートへ rsync して `npm install` を完了。
 - Observation: `npx supabase start` は初回に長時間Pullでタイムアウトしたが、バックグラウンドでコンテナは起動しており、再実行で「already running」と表示。  
   Evidence: `docker ps` で supabase_* コンテナが稼働、`supabase status -o json` でキーとURLを取得できた。
+- Observation: `.gitignore` の `.env*` パターンで `.env.local.example` も無視されていたため、例示ファイルをトラッキングできなかった。  
+  Evidence: ルート `.gitignore` を `!.env.local.example` 追加で修正し、テンプレートを新規作成。
 
 ## Decision Log
 
@@ -41,6 +43,12 @@
   Date/Author: 2026-01-07 / assistant
 - Decision: Supabaseローカルのキー取得は `npx supabase status -o json` を使い、CLIタイムアウト時もバックグラウンド起動を `docker ps` で確認してから再試行する。  
   Rationale: 初回イメージPullでCLIがタイムアウトしてもサービス自体は起動していたため、状態確認とキー抽出が安全。  
+  Date/Author: 2026-01-07 / assistant
+- Decision: `POST /api/attendance` は `(student_id, requested_for)` を onConflict で upsert し、同じ児童の同日出欠を上書き可能にする。  
+  Rationale: 申請後の訂正を許容し、重複エラーで保護者・スタッフを詰まらせないようにする。  
+  Date/Author: 2026-01-07 / assistant
+- Decision: `GET /api/attendance` は日付または期間指定なしの全件取得を許可せず、`date` か `from/to` 指定を必須とする。  
+  Rationale: データ件数が増えた際の無制限フェッチを避け、API利用意図を明確にする。  
   Date/Author: 2026-01-07 / assistant
 
 ## Outcomes & Retrospective
@@ -141,7 +149,7 @@
 
 ## Artifacts and Notes
 
-- 検証時の代表的なリクエスト/レスポンス例、`npm test` の結果、画面の要点をここに箇条書きで追記する予定。
+- (2026-01-07 02:16Z) `npm test` (vitest) 通過。対象: `src/lib/validators.test.ts`（入力バリデーションのフォーマット検証）。
 
 ## Interfaces and Dependencies
 
