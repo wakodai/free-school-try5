@@ -9,9 +9,10 @@
 ## Progress
 
 - [x] (2026-01-07 00:59Z) ExecPlan 初版作成（要件反映・設計方針まとめ）
-- [ ] データモデルとマイグレーションSQL確定・反映
-- [ ] Next.js プロジェクト初期化と環境変数テンプレート準備
-- [ ] Supabase ローカル起動手順と接続検証
+- [x] (2026-01-07 01:27Z) Next.js プロジェクト初期化（App Router/TypeScript/Tailwind/ESLint scaffolding）
+- [x] (2026-01-07 01:32Z) `.env.local.example` 作成と環境変数テンプレート準備
+- [x] (2026-01-07 01:33Z) データモデルと初期マイグレーションSQL追加
+- [x] (2026-01-07 01:54Z) Supabase ローカル起動確認・キー取得・`.env.local` 作成・マイグレーション適用
 - [ ] 出欠API・メッセージAPIの実装と単体テスト
 - [ ] LIFF/LINE風出欠フォーム（登録＋日付/児童/出欠選択）実装
 - [ ] ダッシュボードSPA（一覧・統計・メッセージ閲覧/送信・LINEモックリンク）実装
@@ -20,7 +21,12 @@
 
 ## Surprises & Discoveries
 
-- 未着手（実装後に追記）
+- Observation: リポジトリ直下が空でなかったため `npx create-next-app .` が衝突検出で失敗。  
+  Evidence: CLI のメッセージ「The directory free-school-try5 contains files that could conflict」。
+- Observation: `npx create-next-app tmp-app ...` 実行時に依存インストール途中でタイムアウトしたが、scaffold は生成されていた。  
+  Evidence: `tmp-app/` に Next.js 初期ファイルが生成されており、その後ルートへ rsync して `npm install` を完了。
+- Observation: `npx supabase start` は初回に長時間Pullでタイムアウトしたが、バックグラウンドでコンテナは起動しており、再実行で「already running」と表示。  
+  Evidence: `docker ps` で supabase_* コンテナが稼働、`supabase status -o json` でキーとURLを取得できた。
 
 ## Decision Log
 
@@ -32,6 +38,9 @@
   Date/Author: 2026-01-07 / assistant
 - Decision: LINEが使えない環境に備え、ダッシュボードに「LINEモックUI」への小さなリンクボタンを常設し、保護者向けLIFF風フローをブラウザ内で再現する。  
   Rationale: 受け入れ条件でLINE未接続時にも全機能を確認できる必要があるため。  
+  Date/Author: 2026-01-07 / assistant
+- Decision: Supabaseローカルのキー取得は `npx supabase status -o json` を使い、CLIタイムアウト時もバックグラウンド起動を `docker ps` で確認してから再試行する。  
+  Rationale: 初回イメージPullでCLIがタイムアウトしてもサービス自体は起動していたため、状態確認とキー抽出が安全。  
   Date/Author: 2026-01-07 / assistant
 
 ## Outcomes & Retrospective
@@ -105,7 +114,9 @@
    もしくはbrew/バイナリ。  
 4. Supabase 起動:  
        npx supabase start  
-   生成された `.env` から `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` を `.env.local` に転記。  
+   Pullで時間がかかる場合は待機し、タイムアウトしても `docker ps` でコンテナ稼働を確認。キーは  
+       npx supabase status -o json  
+   の出力から `SUPABASE_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY` を `.env.local` に反映。  
 5. マイグレーション作成と適用: `supabase/migrations/<timestamp>_init.sql` にテーブル定義を記述し、  
        npx supabase migration up  
    で適用・確認。  
