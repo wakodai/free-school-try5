@@ -125,7 +125,6 @@ export default function LineAppMock() {
 
   useEffect(() => {
     loadGuardians();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -198,6 +197,8 @@ export default function LineAppMock() {
       const created = await createGuardian({
         name: guardianForm.name.trim(),
         phone: guardianForm.phone.trim() || undefined,
+        lineUserId: undefined,
+        loginToken: undefined,
       });
       setGuardians((prev) => [created, ...prev]);
       setSelectedGuardianId(created.id);

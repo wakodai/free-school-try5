@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse, type NextRequest } from "next/server";
 import { badRequestFromZod, jsonError } from "@/lib/http";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     return badRequestFromZod(parsed.error);
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseServerClient() as any;
   let query = supabase
     .from("messages")
     .select(
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
     return badRequestFromZod(parsed.error);
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseServerClient() as any;
   const { data, error, status } = await supabase
     .from("messages")
     .insert({

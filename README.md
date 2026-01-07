@@ -33,6 +33,7 @@ LINE アカウントがなくても、ブラウザだけで「保護者→塾」
 - Supabase（PostgreSQL）※ローカル開発は Supabase CLI + Docker
 - Zod（入力バリデーション）
 - Vitest（ユニットテスト）
+- LINE Messaging API（デモ用 webhook 連携）
 
 ## セットアップ
 
@@ -49,6 +50,9 @@ LINE アカウントがなくても、ブラウザだけで「保護者→塾」
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - `SUPABASE_URL`
   - `SUPABASE_SERVICE_ROLE_KEY`
+  - `DEMO_BASIC_USER` / `DEMO_BASIC_PASS`（デモ用Basic認証。未設定なら無効）
+  - `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN`（LINE公式アカウント連携用）
+  - `APP_BASE_URL`（任意: 返信文言で使うURL）
 
 ローカル起動:
 
@@ -72,6 +76,28 @@ npm run dev
 - `attendance_requests`（出欠）
 - `messages`（メッセージ）
 
+## デプロイと運用（デモ想定）
+
+- ホスティング: Vercel（Next.js）、DB: Supabase Cloud（Projectを作成しマイグレーション適用）
+- Vercel 環境変数（Project Settings）
+  - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`
+  - `DEMO_BASIC_USER` / `DEMO_BASIC_PASS`（設定すると Basic 認証が有効。未設定なら無効）
+  - `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN`
+  - `APP_BASE_URL`（例: https://your-demo.vercel.app）
+- Basic 認証: middleware が `/api/line/webhook` を除く全リクエストに適用。ブラウザ/HTTPクライアントは Basic 認証を通さないと利用できない。
+- Supabase マイグレーション: `npx supabase db push --project-ref <project-ref>` でクラウドへ適用。Production 反映前にステージングで確認する。
+
+## LINE 公式アカウント連携（Webhook）
+
+- LINE Developers の Messaging API チャネルを作成し、チャネルシークレット/アクセストークンを環境変数に設定。
+- Webhook URL: `https://<デモドメイン>/api/line/webhook` を有効化。署名（`x-line-signature`）を検証。シークレット未設定時は警告ログのみでスキップ。
+- 処理内容:
+  - メッセージイベント（text）のみ処理。`source.userId` で guardian を照合、未登録なら `guardians` に作成（line_user_id を保存）。
+  - メッセージ本文は `messages.direction = inbound` で保存。
+  - 書式 `出欠 <出席|欠席|遅刻|未定> <YYYY-MM-DD> <児童名> [理由]` なら attendance を upsert（児童がなければ作成して guardian に紐付け）。
+  - LINE へ返信メッセージを送信（アクセストークン設定時）。
+
 ## 開発用コマンド
 
 - `npm run dev`：開発サーバ
@@ -79,6 +105,11 @@ npm run dev
 - `npm run start`：本番起動（ビルド後）
 - `npm run lint`：Lint
 - `npm test`：Vitest
+
+## CI/CD
+
+- GitHub Actions（`.github/workflows/ci.yml`）で `npm ci` → `npm run lint` → `npm test` → `npm run build` を実行。
+- Vercel 連携で PR Preview / main → Production を自動デプロイ。環境変数は Vercel 側で管理する。
 
 ## セキュリティ注意
 

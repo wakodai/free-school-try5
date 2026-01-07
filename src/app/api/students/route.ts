@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse, type NextRequest } from "next/server";
 import { badRequestFromZod, jsonError } from "@/lib/http";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,7 +18,7 @@ function mapStudent(row: StudentRow) {
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseServerClient() as any;
   const search = req.nextUrl.searchParams;
   const guardianId = search.get("guardianId");
 
@@ -39,8 +40,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const rows = data as Array<{ student: StudentRow | null }>;
     return NextResponse.json(
-      data
+      rows
         .map((record) => record.student)
         .filter(Boolean)
         .map((student) => mapStudent(student as StudentRow)),
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
     return badRequestFromZod(parsed.error);
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseServerClient() as any;
 
   const { data: student, error: studentError, status } = await supabase
     .from("students")
