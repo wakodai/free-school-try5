@@ -1,0 +1,21 @@
+{
+  "name": "free-school-try5",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest"
+    }
+  },
+  "containerEnv": {
+    "CODEX_HOME": "${containerWorkspaceFolder}/.codex"
+  },
+  "forwardPorts": [
+    3000,
+    54321,
+    54322,
+    54323
+  ],
+  "remoteUser": "vscode"
+}
