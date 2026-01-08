@@ -160,6 +160,44 @@ export type Database = {
           },
         ];
       };
+      line_flow_sessions: {
+        Row: {
+          line_user_id: string;
+          guardian_id: UUID | null;
+          flow: string;
+          step: string;
+          data: Record<string, unknown>;
+          expires_at: Timestamp;
+          created_at: Timestamp;
+          updated_at: Timestamp;
+        };
+        Insert: {
+          line_user_id: string;
+          guardian_id?: UUID | null;
+          flow: string;
+          step: string;
+          data?: Record<string, unknown>;
+          expires_at?: Timestamp;
+          created_at?: Timestamp;
+          updated_at?: Timestamp;
+        };
+        Update: Partial<{
+          guardian_id: UUID | null;
+          flow: string;
+          step: string;
+          data: Record<string, unknown>;
+          expires_at: Timestamp;
+          updated_at: Timestamp;
+        }>;
+        Relationships: [
+          {
+            foreignKeyName: "line_flow_sessions_guardian_id_fkey";
+            columns: ["guardian_id"];
+            referencedRelation: "guardians";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     } & {
       [key: string]:
         | {
