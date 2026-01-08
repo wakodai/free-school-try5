@@ -10,6 +10,7 @@ LINE アカウントがなくても、ブラウザだけで「保護者→塾」
 - メッセージ送受信（inbound/outbound）
 - スタッフ向けダッシュボード（出欠・統計・メッセージ）
 - LINE モック UI（実LINEなしで送受信を擬似体験）
+- LINE公式リッチメニュー連携（出欠登録 / 登録状況確認 / 設定）
 
 ## 画面（ルート）
 
@@ -52,6 +53,7 @@ LINE アカウントがなくても、ブラウザだけで「保護者→塾」
   - `SUPABASE_SERVICE_ROLE_KEY`
   - `DEMO_BASIC_USER` / `DEMO_BASIC_PASS`（デモ用Basic認証。未設定なら無効）
   - `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN`（LINE公式アカウント連携用）
+  - `LINE_LESSON_WEEKDAYS`（直近授業日の候補に使う曜日リスト。0=日〜6=土、カンマ区切り。未設定時は土曜のみ）
   - `APP_BASE_URL`（任意: 返信文言で使うURL）
 
 ローカル起動:
@@ -75,6 +77,7 @@ npm run dev
 - `guardian_students`（紐付け）
 - `attendance_requests`（出欠）
 - `messages`（メッセージ）
+- `line_flow_sessions`（LINE会話の状態保持。`line_user_id`単位で flow/step/data/resumeFlow を保存）
 
 ## デプロイと運用（デモ想定）
 
@@ -90,13 +93,15 @@ npm run dev
 
 ## LINE 公式アカウント連携（Webhook）
 
-- LINE Developers の Messaging API チャネルを作成し、チャネルシークレット/アクセストークンを環境変数に設定。
-- Webhook URL: `https://<デモドメイン>/api/line/webhook` を有効化。署名（`x-line-signature`）を検証。シークレット未設定時は警告ログのみでスキップ。
-- 処理内容:
-  - メッセージイベント（text）のみ処理。`source.userId` で guardian を照合、未登録なら `guardians` に作成（line_user_id を保存）。
-  - メッセージ本文は `messages.direction = inbound` で保存。
-  - 書式 `出欠 <出席|欠席|遅刻|未定> <YYYY-MM-DD> <児童名> [理由]` なら attendance を upsert（児童がなければ作成して guardian に紐付け）。
-  - LINE へ返信メッセージを送信（アクセストークン設定時）。
+- LINE Developers の Messaging API チャネルを作成し、チャネルシークレット/アクセストークンを環境変数に設定。Webhook URLは `https://<デモドメイン>/api/line/webhook`。
+- リッチメニュー（postback）に「出欠登録」「登録状況確認」「設定」を配置。displayText を設定してトーク履歴に残す。
+- フロー概要（すべて Quick Reply / ボタン / Datetime picker で誘導）:
+  - 未登録時: 保護者名入力 → 子ども名 → 学年選択 → 兄弟追加の有無 → 完了後メニューへ。
+  - 出欠登録: 子ども選択 → 日付選択（直近授業日 + カレンダー） → 出欠ボタン → コメント任意。`attendance_requests` に upsert。
+  - 登録状況確認: 子ども選択 → 期間（次回〜3回 / 今月 / 日付指定） → 一覧を返信。
+  - 設定: 子ども追加/名前修正。完了後に元フローへ戻る `resumeFlow` 付き。
+- 会話状態は `line_flow_sessions` に `flow/step/data` と `resumeFlow` を保存し、途中で子ども追加が必要な場合でも復帰できる。
+- 詳細手順とリッチメニュー作成例は `docs/line-setup.md` を参照。
 
 ## 開発用コマンド
 
