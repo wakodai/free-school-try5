@@ -11,12 +11,18 @@ import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
-type SupabaseClient = ReturnType<typeof getSupabaseServerClient>;
+type SupabaseClient = Omit<ReturnType<typeof getSupabaseServerClient>, "from"> & {
+  from: (...args: Parameters<ReturnType<typeof getSupabaseServerClient>["from"]>) => any;
+};
 type AttendanceStatus = Database["public"]["Enums"]["attendance_status"];
 type GuardianRow = Database["public"]["Tables"]["guardians"]["Row"];
 type StudentRow = Database["public"]["Tables"]["students"]["Row"];
 type AttendanceRow =
   Database["public"]["Tables"]["attendance_requests"]["Row"];
+type LineFlowSessionRow =
+  Database["public"]["Tables"]["line_flow_sessions"]["Row"];
+type LineFlowSessionInsert =
+  Database["public"]["Tables"]["line_flow_sessions"]["Insert"];
 
 type Flow = "idle" | "registration" | "attendance" | "status" | "settings";
 type RegistrationStep =
@@ -277,26 +283,27 @@ function studentQuickReply(
   flow: "attendance" | "status",
 ): Message["quickReply"] {
   const prefix = flow === "attendance" ? "attendance" : "status";
-  return makeQuickReply([
-    ...students.slice(0, 12).map((child) => ({
-      type: "action",
-      action: {
-        type: "postback",
-        label: child.grade ? `${child.name} (${child.grade})` : child.name,
-        data: `${prefix}:student:${child.id}`,
-        displayText: `${child.name} を選択`,
-      },
-    })),
-    {
-      type: "action",
-      action: {
-        type: "postback",
-        label: "子どもを追加",
-        data: "settings:start",
-        displayText: "子どもを追加する",
-      },
+  const items: QuickReplyItem[] = students.slice(0, 12).map((child): QuickReplyItem => ({
+    type: "action",
+    action: {
+      type: "postback",
+      label: child.grade ? `${child.name} (${child.grade})` : child.name,
+      data: `${prefix}:student:${child.id}`,
+      displayText: `${child.name} を選択`,
     },
-  ]);
+  }));
+
+  items.push({
+    type: "action",
+    action: {
+      type: "postback",
+      label: "子どもを追加",
+      data: "settings:start",
+      displayText: "子どもを追加する",
+    },
+  });
+
+  return makeQuickReply(items);
 }
 
 function attendanceDateQuickReply(dates: string[]): Message["quickReply"] {
@@ -439,19 +446,20 @@ async function loadSession(
     .select("*")
     .eq("line_user_id", lineUserId)
     .maybeSingle();
-  if (!data) return null;
+  const session = (data as LineFlowSessionRow | null) ?? null;
+  if (!session) return null;
   const expired =
-    data.expires_at && new Date(data.expires_at).getTime() < Date.now();
+    session.expires_at && new Date(session.expires_at).getTime() < Date.now();
   if (expired) {
     await supabase.from("line_flow_sessions").delete().eq("line_user_id", lineUserId);
     return null;
   }
   return {
-    lineUserId: data.line_user_id,
-    flow: (data.flow as Flow) ?? "idle",
-    step: (data.step as SessionStep) ?? "idle",
-    data: (data.data as SessionData) ?? {},
-    guardianId: data.guardian_id,
+    lineUserId: session.line_user_id,
+    flow: (session.flow as Flow) ?? "idle",
+    step: (session.step as SessionStep) ?? "idle",
+    data: (session.data as SessionData) ?? {},
+    guardianId: session.guardian_id,
   };
 }
 
@@ -460,18 +468,16 @@ async function persistSession(
   session: Session,
 ): Promise<void> {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-  await supabase.from("line_flow_sessions").upsert(
-    {
-      line_user_id: session.lineUserId,
-      guardian_id: session.guardianId ?? session.data.guardianId ?? null,
-      flow: session.flow,
-      step: session.step,
-      data: session.data ?? {},
-      expires_at: expiresAt,
-      updated_at: nowIso(),
-    },
-    { onConflict: "line_user_id" },
-  );
+  const payload: LineFlowSessionInsert = {
+    line_user_id: session.lineUserId,
+    guardian_id: session.guardianId ?? session.data.guardianId ?? null,
+    flow: session.flow,
+    step: session.step,
+    data: session.data ?? {},
+    expires_at: expiresAt,
+    updated_at: nowIso(),
+  };
+  await (supabase.from("line_flow_sessions") as any).upsert(payload, { onConflict: "line_user_id" });
 }
 
 async function resetSession(
@@ -574,7 +580,7 @@ async function listStudentsForGuardian(
     .eq("guardian_id", guardianId);
   if (error || !data) return [];
   return data
-    .map((row) => row.student)
+    .map((row: { student: StudentRow | null }) => row.student)
     .filter(Boolean) as StudentRow[];
 }
 
@@ -650,7 +656,7 @@ async function fetchAttendanceMap(
     .gte("requested_for", from)
     .lte("requested_for", to);
   const map = new Map<string, AttendanceRow>();
-  (data ?? []).forEach((row) => {
+  (data ?? []).forEach((row: AttendanceRow) => {
     map.set(row.requested_for, row);
   });
   return map;
@@ -981,7 +987,7 @@ async function finishRegistration(
       .select("*")
       .eq("id", guardianId)
       .maybeSingle()
-      .then((res) => res.data);
+      .then((res: { data: GuardianRow | null }) => res.data);
     if (guardian) {
       if (resume === "attendance") {
         await startAttendanceFlow(
@@ -1071,7 +1077,7 @@ async function finishSettingsFlow(
       .select("*")
       .eq("id", guardianId)
       .maybeSingle()
-      .then((res) => res.data);
+      .then((res: { data: GuardianRow | null }) => res.data);
     if (guardian) {
       if (session.data.resumeFlow === "attendance") {
         await startAttendanceFlow(
@@ -1203,7 +1209,9 @@ async function handleAttendancePostback(
 
   if (session.step === "choose_date" && postback.key === "date") {
     const paramsDate =
-      event.type === "postback" ? event.postback.params?.date : undefined;
+      event.type === "postback"
+        ? ((event.postback.params as { date?: string } | undefined)?.date ?? undefined)
+        : undefined;
     const dateFromData =
       postback.value && datePattern.test(postback.value)
         ? postback.value
@@ -1503,7 +1511,9 @@ async function handleStatusPostback(
 
   if (session.step === "choose_range" && postback.key === "range") {
     const paramsDate =
-      event.type === "postback" ? event.postback.params?.date : undefined;
+      event.type === "postback"
+        ? ((event.postback.params as { date?: string } | undefined)?.date ?? undefined)
+        : undefined;
     let dates: string[] = [];
     if (postback.value === "next3") {
       dates = getUpcomingLessonDates(3);
