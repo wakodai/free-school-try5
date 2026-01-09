@@ -4,6 +4,7 @@ import {
   type Message,
   type WebhookEvent,
 } from "@line/bot-sdk";
+import type { SupabaseClient as SupabaseClientType } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalEnv } from "@/lib/env";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -11,9 +12,7 @@ import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
-type SupabaseClient = Omit<ReturnType<typeof getSupabaseServerClient>, "from"> & {
-  from: (...args: Parameters<ReturnType<typeof getSupabaseServerClient>["from"]>) => any;
-};
+type SupabaseClient = SupabaseClientType<Database>;
 type AttendanceStatus = Database["public"]["Enums"]["attendance_status"];
 type GuardianRow = Database["public"]["Tables"]["guardians"]["Row"];
 type StudentRow = Database["public"]["Tables"]["students"]["Row"];
@@ -473,11 +472,17 @@ async function persistSession(
     guardian_id: session.guardianId ?? session.data.guardianId ?? null,
     flow: session.flow,
     step: session.step,
-    data: session.data ?? {},
+    data: (session.data ?? {}) as LineFlowSessionInsert["data"],
     expires_at: expiresAt,
     updated_at: nowIso(),
   };
-  await (supabase.from("line_flow_sessions") as any).upsert(payload, { onConflict: "line_user_id" });
+  const lineFlowSessions = supabase.from("line_flow_sessions") as unknown as {
+    upsert: (
+      values: LineFlowSessionInsert,
+      options?: { onConflict?: string },
+    ) => Promise<unknown>;
+  };
+  await lineFlowSessions.upsert(payload, { onConflict: "line_user_id" });
 }
 
 async function resetSession(
@@ -511,8 +516,20 @@ async function createGuardian(
   name: string,
   lineUserId: string,
 ): Promise<GuardianRow> {
-  const { data, error } = await supabase
-    .from("guardians")
+  const guardiansTable = supabase.from("guardians") as unknown as {
+    insert: (
+      values: Database["public"]["Tables"]["guardians"]["Insert"],
+    ) => {
+      select: () => {
+        single: () => Promise<{
+          data: GuardianRow | null;
+          error: { message?: string } | null;
+          status?: number;
+        }>;
+      };
+    };
+  };
+  const { data, error } = await guardiansTable
     .insert({ name, line_user_id: lineUserId })
     .select()
     .single();
@@ -529,10 +546,14 @@ async function upsertGuardianName(
   guardianId: string,
   name: string,
 ) {
-  await supabase
-    .from("guardians")
-    .update({ name })
-    .eq("id", guardianId);
+  const guardiansTable = supabase.from("guardians") as unknown as {
+    update: (
+      values: Database["public"]["Tables"]["guardians"]["Update"],
+    ) => {
+      eq: (column: "id", value: string) => Promise<unknown>;
+    };
+  };
+  await guardiansTable.update({ name }).eq("id", guardianId);
 }
 
 async function createStudent(
@@ -541,8 +562,20 @@ async function createStudent(
   name: string,
   grade?: string | null,
 ): Promise<StudentRow> {
-  const { data, error, status } = await supabase
-    .from("students")
+  const studentsTable = supabase.from("students") as unknown as {
+    insert: (
+      values: Database["public"]["Tables"]["students"]["Insert"],
+    ) => {
+      select: () => {
+        single: () => Promise<{
+          data: StudentRow | null;
+          error: { message?: string } | null;
+          status?: number;
+        }>;
+      };
+    };
+  };
+  const { data, error, status } = await studentsTable
     .insert({
       name,
       grade: grade ?? null,
@@ -556,7 +589,12 @@ async function createStudent(
     );
   }
 
-  const { error: linkError } = await supabase.from("guardian_students").insert({
+  const guardianStudentsTable = supabase.from("guardian_students") as unknown as {
+    insert: (
+      values: Database["public"]["Tables"]["guardian_students"]["Insert"],
+    ) => Promise<{ error: { message: string; code?: string } | null }>;
+  };
+  const { error: linkError } = await guardianStudentsTable.insert({
     guardian_id: guardianId,
     student_id: data.id,
   });
@@ -594,7 +632,13 @@ async function upsertAttendance(
     reason?: string | null;
   },
 ) {
-  const { error } = await supabase.from("attendance_requests").upsert(
+  const attendanceRequestsTable = supabase.from("attendance_requests") as unknown as {
+    upsert: (
+      values: Database["public"]["Tables"]["attendance_requests"]["Insert"],
+      options?: { onConflict?: string },
+    ) => Promise<{ error: { message: string } | null }>;
+  };
+  const { error } = await attendanceRequestsTable.upsert(
     {
       guardian_id: input.guardianId,
       student_id: input.studentId,
@@ -618,7 +662,12 @@ async function storeInboundMessage(
   studentId: string | null,
   body: string,
 ) {
-  await supabase.from("messages").insert({
+  const messagesTable = supabase.from("messages") as unknown as {
+    insert: (
+      values: Database["public"]["Tables"]["messages"]["Insert"],
+    ) => Promise<unknown>;
+  };
+  await messagesTable.insert({
     guardian_id: guardianId,
     student_id: studentId,
     direction: "inbound",
@@ -633,7 +682,12 @@ async function storeOutboundMessage(
   body: string,
 ) {
   if (!guardianId) return;
-  await supabase.from("messages").insert({
+  const messagesTable = supabase.from("messages") as unknown as {
+    insert: (
+      values: Database["public"]["Tables"]["messages"]["Insert"],
+    ) => Promise<unknown>;
+  };
+  await messagesTable.insert({
     guardian_id: guardianId,
     student_id: studentId,
     direction: "outbound",
@@ -1335,8 +1389,16 @@ async function finalizeAttendance(
     reason: comment ? comment : null,
   });
 
-  const { data: student } = await supabase
-    .from("students")
+  const studentsTable = supabase.from("students") as unknown as {
+    select: (columns: string) => {
+      eq: (column: "id", value: string) => {
+        maybeSingle: () => Promise<{
+          data: Pick<StudentRow, "name" | "grade"> | null;
+        }>;
+      };
+    };
+  };
+  const { data: student } = await studentsTable
     .select("name, grade")
     .eq("id", attendance.studentId)
     .maybeSingle();
