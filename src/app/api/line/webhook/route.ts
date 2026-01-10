@@ -930,8 +930,8 @@ async function handleRegistrationText(
 
   if (current === "ask_more_children") {
     const normalized = text.trim();
-    const yes = normalized === "追加する";
-    const no = normalized === "これで完了";
+    const yes = normalized === "追加する" || normalized === "yes";
+    const no = normalized === "これで完了" || normalized === "no";
     if (yes) {
       const next: Session = {
         ...session,
