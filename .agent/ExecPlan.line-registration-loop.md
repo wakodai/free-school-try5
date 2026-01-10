@@ -15,13 +15,15 @@
 
 - [x] (2026-01-10 04:40Z) 不具合の原因を特定し、修正方針を立案
 - [x] (2026-01-10 04:48Z) route.ts の登録フロー分岐を修正して guardian 未作成時でも入力を処理できるようにする
-- [ ] 修正後の動作確認手順を整理し、必要なら簡易テストを実行
+- [x] (2026-01-10 05:29Z) lint/test/build で正常終了することを確認（Next.js build 警告のみ）
 
 
 ## Surprises & Discoveries
 
 
-- なし（更新時に証跡を記載）
+- Observation: registration フローを通すためのガード変更後、TypeScript が attendance/status ブロックで guardian が null かもしれないと判定し build が失敗した
+  Evidence: `npm run build` で `route.ts:1945` guardian 引数が null 非許容と報告
+  Action: registration ブロックを先に処理し、その後で guardian 非存在時は startRegistrationFlow に戻す形にロジックを並べ替え、再ビルドを通過
 
 
 ## Decision Log

@@ -1890,7 +1890,20 @@ async function routeMessage(
     await storeInboundMessage(supabase, guardian.id, null, text);
   }
 
-  if (!guardian && session?.flow !== "registration") {
+  if (session?.flow === "registration") {
+    await handleRegistrationText(
+      supabase,
+      client,
+      event.replyToken,
+      text,
+      lineUserId,
+      session,
+      guardian,
+    );
+    return;
+  }
+
+  if (!guardian) {
     await startRegistrationFlow(
       supabase,
       client,
@@ -1907,19 +1920,6 @@ async function routeMessage(
       text: "リッチメニューから操作を選んでください。（出欠登録/登録状況確認/設定）",
       quickReply: mainMenuQuickReply(),
     });
-    return;
-  }
-
-  if (session.flow === "registration") {
-    await handleRegistrationText(
-      supabase,
-      client,
-      event.replyToken,
-      text,
-      lineUserId,
-      session,
-      guardian,
-    );
     return;
   }
 
