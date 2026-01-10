@@ -9,7 +9,7 @@ LINE公式アカウント経由の会話フローを図示したものです。
 flowchart TD
   A[LINE Webhook受信 POST] --> B{署名検証}
   B -->|OK| C[events配列を順に処理]
-  C --> D{event.source.userId?}
+  C --> D{event.source.userIdの有無}
   D -->|no| C
   D -->|yes| E[guardian取得 (line_user_id)]
   E --> F[session取得 (line_flow_sessions)]
@@ -22,7 +22,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  A[followイベント] --> B{guardian存在?}
+  A[followイベント] --> B{guardian存在か}
   B -->|no| C[登録フロー開始]
   B -->|yes| D[セッションをidleにリセット]
   D --> E[リッチメニュー誘導メッセージ返信]
@@ -33,50 +33,50 @@ flowchart TD
 ```mermaid
 flowchart TD
   A[postbackイベント] --> B[postback解析]
-  B --> C{flow == entry?}
-  C -->|yes & guardian未登録| D[登録フロー開始]
-  C -->|yes & attendance| E[出欠登録フロー開始]
-  C -->|yes & status| F[登録状況確認フロー開始]
-  C -->|yes & settings| G[設定フロー開始]
+  B --> C{flowがentryか}
+  C -->|yes・guardian未登録| D[登録フロー開始]
+  C -->|yes・attendance| E[出欠登録フロー開始]
+  C -->|yes・status| F[登録状況確認フロー開始]
+  C -->|yes・settings| G[設定フロー開始]
 
-  C -->|no| H{guardian未登録?}
-  H -->|yes & currentSession.flow!=registration| D
-  H -->|no| I{currentSessionある?}
+  C -->|no| H{guardian未登録か}
+  H -->|yes・currentSession.flowがregistration以外| D
+  H -->|no| I{currentSessionあるか}
   I -->|no| J[何もしない]
 
-  I -->|yes & flow==registration| K[登録フロー継続]
-  I -->|yes & flow==settings| L[設定フロー継続/開始]
-  I -->|yes & flow==attendance| M[出欠登録フロー継続]
-  I -->|yes & flow==status| N[登録状況確認フロー継続]
+  I -->|yes・flowがregistration| K[登録フロー継続]
+  I -->|yes・flowがsettings| L[設定フロー継続/開始]
+  I -->|yes・flowがattendance| M[出欠登録フロー継続]
+  I -->|yes・flowがstatus| N[登録状況確認フロー継続]
 ```
 
 ## 4. Message（テキストメッセージ）
 
 ```mermaid
 flowchart TD
-  A[textメッセージ] --> B{guardian存在?}
+  A[textメッセージ] --> B{guardian存在か}
   B -->|yes| C[メッセージ保存]
-  B --> D{session.flow == registration?}
+  B --> D{session.flowがregistrationか}
   D -->|yes| E[登録フロー継続]
-  D -->|no & guardian未登録| F[登録フロー開始]
-  D -->|no & sessionなし or idle| G[リッチメニュー案内返信]
-  D -->|no & flow==settings| H[設定フロー継続]
-  D -->|no & flow==attendance| I[出欠登録フロー継続]
-  D -->|no & flow==status| J[登録状況確認フロー継続]
+  D -->|no・guardian未登録| F[登録フロー開始]
+  D -->|no・sessionなし または idle| G[リッチメニュー案内返信]
+  D -->|no・flowがsettings| H[設定フロー継続]
+  D -->|no・flowがattendance| I[出欠登録フロー継続]
+  D -->|no・flowがstatus| J[登録状況確認フロー継続]
 ```
 
 ## 5. セッション保持（line_flow_sessions）
 
 ```mermaid
 flowchart TD
-  A[loadSession] --> B{expires_at期限切れ?}
-  B -->|yes| C[レコード削除->null]
+  A[loadSession] --> B{expires_at期限切れか}
+  B -->|yes| C[レコード削除→null]
   B -->|no| D[flow/step/data/guardianIdを復元]
 
   E[persistSession] --> F[upsert line_flow_sessions]
   F --> G[expires_atを48h後に更新]
 
-  H[resetSession] --> I[flow=idle/step=idleで保存]
+  H[resetSession] --> I[flow: idle / step: idleで保存]
 ```
 
 ## 6. フロー種別（エントリ）
@@ -112,7 +112,7 @@ flowchart TD
   G -->|これで完了| H[finishRegistration]
   H --> I[セッションリセット]
   H --> J[メインメニュー案内]
-  H --> K{resumeFlow?}
+  H --> K{resumeFlowか}
   K -->|attendance| L[出欠登録フローへ]
   K -->|status| M[登録状況確認フローへ]
 ```
@@ -121,7 +121,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  A[開始: startAttendanceFlow] --> B{児童存在?}
+  A[開始: startAttendanceFlow] --> B{児童存在か}
   B -->|no| C[settingsへ遷移 (resume=attendance)]
   B -->|yes| D[choose_student]
 
@@ -147,7 +147,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  A[開始: startStatusFlow] --> B{児童存在?}
+  A[開始: startStatusFlow] --> B{児童存在か}
   B -->|no| C[settingsへ遷移 (resume=status)]
   B -->|yes| D[choose_student]
 
@@ -185,7 +185,7 @@ flowchart TD
   E -->|これで完了| F[finishSettingsFlow]
   F --> G[セッションリセット]
   F --> H[メニュー案内]
-  F --> I{resumeFlow?}
+  F --> I{resumeFlowか}
   I -->|attendance| J[出欠登録フローへ]
   I -->|status| K[登録状況確認フローへ]
 ```
