@@ -56,6 +56,7 @@ type SessionData = {
   };
   statusCheck?: {
     studentId?: string;
+    allStudents?: boolean;
     range?: RangeOption;
     customDate?: string;
   };
@@ -282,25 +283,42 @@ function studentQuickReply(
   flow: "attendance" | "status",
 ): Message["quickReply"] {
   const prefix = flow === "attendance" ? "attendance" : "status";
-  const items: QuickReplyItem[] = students.slice(0, 12).map((child): QuickReplyItem => ({
-    type: "action",
-    action: {
-      type: "postback",
-      label: child.grade ? `${child.name} (${child.grade})` : child.name,
-      data: `${prefix}:student:${child.id}`,
-      displayText: `${child.name} を選択`,
-    },
-  }));
+  const items: QuickReplyItem[] = [];
+  if (flow === "status") {
+    items.push({
+      type: "action",
+      action: {
+        type: "postback",
+        label: "全員",
+        data: `${prefix}:student:all`,
+        displayText: "全員を選択",
+      },
+    });
+  }
 
-  items.push({
-    type: "action",
-    action: {
-      type: "postback",
-      label: "子どもを追加",
-      data: "settings:start",
-      displayText: "子どもを追加する",
-    },
-  });
+  items.push(
+    ...students.slice(0, 12).map((child): QuickReplyItem => ({
+      type: "action",
+      action: {
+        type: "postback",
+        label: child.grade ? `${child.name} (${child.grade})` : child.name,
+        data: `${prefix}:student:${child.id}`,
+        displayText: `${child.name} を選択`,
+      },
+    })),
+  );
+
+  if (flow === "attendance") {
+    items.push({
+      type: "action",
+      action: {
+        type: "postback",
+        label: "子どもを追加",
+        data: "settings:start",
+        displayText: "子どもを追加する",
+      },
+    });
+  }
 
   return makeQuickReply(items);
 }
@@ -714,6 +732,10 @@ async function fetchAttendanceMap(
     map.set(row.requested_for, row);
   });
   return map;
+}
+
+function formatStudentLabel(student: StudentRow): string {
+  return student.grade ? `${student.name} (${student.grade})` : student.name;
 }
 
 async function startRegistrationFlow(
@@ -1554,12 +1576,15 @@ async function handleStatusPostback(
   event: WebhookEvent,
 ) {
   if (session.step === "choose_student" && postback.key === "student" && postback.value) {
+    const isAllStudents = postback.value === "all";
     const next: Session = {
       ...session,
       step: "choose_range",
       data: {
         ...session.data,
-        statusCheck: { studentId: postback.value },
+        statusCheck: isAllStudents
+          ? { allStudents: true }
+          : { studentId: postback.value },
       },
     };
     await persistSession(supabase, next);
@@ -1625,6 +1650,20 @@ async function handleStatusText(
   const trimmed = text.trim();
   if (session.step === "choose_student") {
     const children = await listStudentsForGuardian(supabase, guardian.id);
+    if (trimmed === "全員") {
+      const next: Session = {
+        ...session,
+        step: "choose_range",
+        data: { ...session.data, statusCheck: { allStudents: true } },
+      };
+      await persistSession(supabase, next);
+      await replyMessage(client, replyToken, {
+        type: "text",
+        text: "どの範囲を見ますか？",
+        quickReply: statusRangeQuickReply(),
+      });
+      return;
+    }
     const matched = children.find((child) => child.name === trimmed);
     if (!matched) {
       await replyMessage(client, replyToken, {
@@ -1679,7 +1718,7 @@ async function sendStatusSummary(
 ) {
   const statusCheck = session.data.statusCheck;
   const studentId = statusCheck?.studentId;
-  if (!studentId) {
+  if (!studentId && !statusCheck?.allStudents) {
     await resetSession(supabase, lineUserId, guardian.id);
     await replyMessage(client, replyToken, {
       type: "text",
@@ -1695,21 +1734,43 @@ async function sendStatusSummary(
   const sortedDates = [...dates].sort();
   const from = sortedDates[0];
   const to = sortedDates[sortedDates.length - 1];
-  const attendanceMap = await fetchAttendanceMap(
-    supabase,
-    guardian.id,
-    studentId,
-    from,
-    to,
-  );
-
-  const lines = sortedDates.map((date) => {
-    const row = attendanceMap.get(date);
-    if (!row) return `- ${formatDateLabel(date)} 未回答`;
-    return `- ${formatDateLabel(date)} ${statusLabel[row.status]}${
-      row.reason ? `（${row.reason}）` : ""
-    }`;
-  });
+  const lines: string[] = [];
+  if (statusCheck?.allStudents) {
+    const students = await listStudentsForGuardian(supabase, guardian.id);
+    const attendanceMaps = await Promise.all(
+      students.map((student) =>
+        fetchAttendanceMap(supabase, guardian.id, student.id, from, to),
+      ),
+    );
+    students.forEach((student, index) => {
+      const attendanceMap = attendanceMaps[index];
+      const studentLines = sortedDates.map((date) => {
+        const row = attendanceMap.get(date);
+        if (!row) return `- ${formatDateLabel(date)} 未回答`;
+        return `- ${formatDateLabel(date)} ${statusLabel[row.status]}${
+          row.reason ? `（${row.reason}）` : ""
+        }`;
+      });
+      lines.push(`${formatStudentLabel(student)}\n${studentLines.join("\n")}`);
+    });
+  } else if (studentId) {
+    const attendanceMap = await fetchAttendanceMap(
+      supabase,
+      guardian.id,
+      studentId,
+      from,
+      to,
+    );
+    lines.push(
+      ...sortedDates.map((date) => {
+        const row = attendanceMap.get(date);
+        if (!row) return `- ${formatDateLabel(date)} 未回答`;
+        return `- ${formatDateLabel(date)} ${statusLabel[row.status]}${
+          row.reason ? `（${row.reason}）` : ""
+        }`;
+      }),
+    );
+  }
 
   await resetSession(supabase, lineUserId, guardian.id);
 
