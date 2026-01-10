@@ -1789,7 +1789,7 @@ async function routePostback(
     }
   }
 
-  if (!guardian) {
+  if (!guardian && currentSession?.flow !== "registration") {
     await startRegistrationFlow(
       supabase,
       client,
@@ -1890,7 +1890,7 @@ async function routeMessage(
     await storeInboundMessage(supabase, guardian.id, null, text);
   }
 
-  if (!guardian) {
+  if (!guardian && session?.flow !== "registration") {
     await startRegistrationFlow(
       supabase,
       client,
