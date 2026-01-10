@@ -11,8 +11,8 @@ flowchart TD
   B -->|OK| C[events配列を順に処理]
   C --> D{event.source.userIdの有無}
   D -->|no| C
-  D -->|yes| E[guardian取得 (line_user_id)]
-  E --> F[session取得 (line_flow_sessions)]
+  D -->|yes| E[guardian取得 line_user_id]
+  E --> F[session取得 line_flow_sessions]
   F --> G[handleFollowEvent]
   F --> H[routePostback]
   F --> I[routeMessage]
@@ -83,7 +83,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  A[entry (リッチメニュー)] --> B[registration]
+  A[entry: リッチメニュー] --> B[registration]
   A --> C[attendance]
   A --> D[status]
   A --> E[settings]
@@ -122,7 +122,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   A[開始: startAttendanceFlow] --> B{児童存在か}
-  B -->|no| C[settingsへ遷移 (resume=attendance)]
+  B -->|no| C[settingsへ遷移 resume=attendance]
   B -->|yes| D[choose_student]
 
   D -->|児童選択| E[choose_date]
@@ -148,7 +148,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   A[開始: startStatusFlow] --> B{児童存在か}
-  B -->|no| C[settingsへ遷移 (resume=status)]
+  B -->|no| C[settingsへ遷移 resume=status]
   B -->|yes| D[choose_student]
 
   D -->|児童選択| E[choose_range]
