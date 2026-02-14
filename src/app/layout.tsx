@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "無料塾 出欠・LINEモック MVP",
-  description: "LIFF風フォームとダッシュボードで出欠とメッセージを管理するMVP",
+  title: "無料塾 出欠管理システム",
+  description: "出欠とメッセージをダッシュボードで一元管理するシステム",
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ja">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
