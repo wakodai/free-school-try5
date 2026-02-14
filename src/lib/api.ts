@@ -15,15 +15,35 @@ import type {
   Student,
 } from "@/types";
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly url: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    cache: "no-store",
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      cache: "no-store",
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch {
+    throw new ApiError(
+      "サーバーに接続できませんでした。ネットワーク接続を確認してください。",
+      0,
+      url,
+    );
+  }
 
   const text = await response.text();
   let payload: unknown = null;
@@ -44,8 +64,8 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
       (typeof payload === "object" && payload !== null && "message" in payload
         ? (payload as Record<string, string>).message
         : undefined) ??
-      `Request to ${url} failed with status ${response.status}`;
-    throw new Error(message);
+      `リクエストに失敗しました (${response.status})`;
+    throw new ApiError(message, response.status, url);
   }
 
   return payload as T;

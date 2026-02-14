@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse, type NextRequest } from "next/server";
-import { badRequestFromZod, jsonError } from "@/lib/http";
+import { badRequestFromZod, internalServerError, jsonError } from "@/lib/http";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import {
@@ -35,74 +35,79 @@ function mapMessage(
 }
 
 export async function GET(req: NextRequest) {
-  const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
-  const parsed = messagesQuerySchema.safeParse(searchParams);
+  try {
+    const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
+    const parsed = messagesQuerySchema.safeParse(searchParams);
 
-  if (!parsed.success) {
-    return badRequestFromZod(parsed.error);
-  }
+    if (!parsed.success) {
+      return badRequestFromZod(parsed.error);
+    }
 
-  const supabase = getSupabaseServerClient() as any;
-  let query = supabase
-    .from("messages")
-    .select(
-      "*, guardian:guardians(id, name, phone), student:students(id, name, grade)",
-    )
-    .order("created_at", { ascending: false });
+    const supabase = getSupabaseServerClient() as any;
+    let query = supabase
+      .from("messages")
+      .select(
+        "*, guardian:guardians(id, name, phone), student:students(id, name, grade)",
+      )
+      .order("created_at", { ascending: false });
 
-  if (parsed.data.guardianId) {
-    query = query.eq("guardian_id", parsed.data.guardianId);
-  }
-  if (parsed.data.studentId) {
-    query = query.eq("student_id", parsed.data.studentId);
-  }
-  if (parsed.data.direction) {
-    query = query.eq("direction", parsed.data.direction);
-  }
+    if (parsed.data.guardianId) {
+      query = query.eq("guardian_id", parsed.data.guardianId);
+    }
+    if (parsed.data.studentId) {
+      query = query.eq("student_id", parsed.data.studentId);
+    }
+    if (parsed.data.direction) {
+      query = query.eq("direction", parsed.data.direction);
+    }
 
-  const { data, error, status } = await query;
-  if (error || !data) {
-    return jsonError(
-      `メッセージ取得に失敗しました: ${error?.message ?? "unknown"}`,
-      status || 500,
-    );
-  }
+    const { data, error } = await query;
+    if (error) {
+      console.error("メッセージ取得エラー:", error.message);
+      return jsonError("メッセージの取得に失敗しました。", 500);
+    }
 
-  return NextResponse.json(data.map(mapMessage));
+    return NextResponse.json((data ?? []).map(mapMessage));
+  } catch (err) {
+    console.error("メッセージ取得で予期しないエラー:", err);
+    return internalServerError();
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  const parsed = createMessageSchema.safeParse(body);
+  try {
+    const body = await req.json().catch(() => null);
+    const parsed = createMessageSchema.safeParse(body);
 
-  if (!parsed.success) {
-    return badRequestFromZod(parsed.error);
-  }
-
-  const supabase = getSupabaseServerClient() as any;
-  const { data, error, status } = await supabase
-    .from("messages")
-    .insert({
-      guardian_id: parsed.data.guardianId,
-      student_id: parsed.data.studentId ?? null,
-      direction: parsed.data.direction,
-      body: parsed.data.body,
-    })
-    .select(
-      "*, guardian:guardians(id, name, phone), student:students(id, name, grade)",
-    )
-    .single();
-
-  if (error || !data) {
-    const isForeignKeyViolation = error?.code === "23503";
-    if (isForeignKeyViolation) {
-      return jsonError("guardianId もしくは studentId が存在しません。", 400);
+    if (!parsed.success) {
+      return badRequestFromZod(parsed.error);
     }
-    return jsonError(
-      `メッセージ保存に失敗しました: ${error?.message ?? "unknown"}`,
-      status || 500,
-    );
-  }
 
-  return NextResponse.json(mapMessage(data));
+    const supabase = getSupabaseServerClient() as any;
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
+        guardian_id: parsed.data.guardianId,
+        student_id: parsed.data.studentId ?? null,
+        direction: parsed.data.direction,
+        body: parsed.data.body,
+      })
+      .select(
+        "*, guardian:guardians(id, name, phone), student:students(id, name, grade)",
+      )
+      .single();
+
+    if (error) {
+      if (error.code === "23503") {
+        return jsonError("guardianId もしくは studentId が存在しません。", 400);
+      }
+      console.error("メッセージ保存エラー:", error.message);
+      return jsonError("メッセージの保存に失敗しました。", 500);
+    }
+
+    return NextResponse.json(mapMessage(data));
+  } catch (err) {
+    console.error("メッセージ保存で予期しないエラー:", err);
+    return internalServerError();
+  }
 }
