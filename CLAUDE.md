@@ -23,7 +23,7 @@ CI（`.github/workflows/ci.yml`）は `npm run lint` → `npm test` → `npm run
 
 ## プロジェクト概要
 
-無料塾向けの出欠・連絡管理 MVP。保護者が LINE またはブラウザから出欠連絡を送信し、スタッフがダッシュボードで確認・返信する。
+無料塾向けの出欠・連絡管理システム。保護者が LINE から出欠連絡を送信し、スタッフがダッシュボードで確認・返信する。
 
 ## アーキテクチャ
 
@@ -39,12 +39,10 @@ CI（`.github/workflows/ci.yml`）は `npm run lint` → `npm test` → `npm run
 - **`src/types.ts`** — ドメインモデル型定義（Guardian, Student, AttendanceRequest, Message）
 - **`supabase/migrations/`** — DB スキーマ定義（PostgreSQL）
 
-### 3つの画面
+### 画面構成
 
 | パス | 対象 | 説明 |
 |------|------|------|
-| `/liff` | 保護者 | LIFF 風フォーム。ローカルストレージにプロフィール保存 |
-| `/mock-line` | 保護者 | LINE チャット風モック UI。Webhook なしで会話フロー体験 |
 | `/dashboard` | スタッフ | 出欠一覧・統計・メッセージ管理 |
 
 ### LINE Webhook（最も複雑な部分）

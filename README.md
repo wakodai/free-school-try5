@@ -1,25 +1,20 @@
-# 無料塾 出欠・連絡 MVP（free-school-try5）
+# 無料塾 出欠・連絡管理システム（free-school-try5）
 
-LINE 公式アカウント連携と、LINE なしでも試せるモック UI を備えた「無料塾向けの出欠・連絡」MVP です。保護者は LIFF 風フォームから出欠連絡やメッセージを送信でき、スタッフはダッシュボードで出欠一覧・統計・メッセージを確認できます。
+LINE 公式アカウント連携による「無料塾向けの出欠・連絡管理システム」です。保護者は LINE から出欠連絡やメッセージを送信でき、スタッフはダッシュボードで出欠一覧・統計・メッセージを確認できます。
 
 ## できること
 
-- 保護者の登録・プロフィール保存（ブラウザのローカルストレージ）
+- 保護者の登録（LINE 経由）
 - 児童の登録と保護者への紐付け
 - 出欠連絡の送信（児童 × 日付で upsert）
 - 保護者/スタッフ間のメッセージ送受信（inbound/outbound）
 - スタッフ向けダッシュボード（出欠一覧・統計・メッセージ）
-- LINE モック UI（実 LINE なしで送受信を擬似体験）
 - LINE Messaging API の Webhook 連携（リッチメニューから出欠・状況確認・設定）
 
 ## 画面とルート
 
-- `/`：概要ページ（入口）
-- `/liff`：保護者向け LIFF 風フォーム（出欠・メッセージ）
-- `/mock-line`：LINE モック UI（同じフォームをチャット風に体験）
 - `/dashboard`：スタッフ向けダッシュボード（出欠・統計・メッセージ）
-
-`/liff` と `/mock-line` は同じ UI コンポーネントを利用しており、保護者向けの入力フローを簡単に試せます。
+- `/api/line/webhook`：LINE Webhook エンドポイント
 
 ## API（Route Handlers）
 
@@ -117,7 +112,7 @@ LINE Messaging API の Webhook を `/api/line/webhook` に設定すると、リ�
 
 詳しい手順・リッチメニュー作成例は `docs/line-setup.md` を参照してください。
 
-## Basic 認証（デモ向け）
+## Basic 認証
 
 `DEMO_BASIC_USER` と `DEMO_BASIC_PASS` を設定すると、`/api/line/webhook` を除く全リクエストで Basic 認証が有効になります。
 
@@ -127,7 +122,7 @@ LINE Messaging API の Webhook を `/api/line/webhook` に設定すると、リ�
 - `npm run build`：ビルド
 - `npm run start`：本番起動（ビルド後）
 - `npm run lint`：Lint
-- `npm test`：Vitest
+- `npm test`：テスト
 
 ## ディレクトリ構成
 
