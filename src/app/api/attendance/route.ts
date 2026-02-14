@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse, type NextRequest } from "next/server";
-import { badRequestFromZod, jsonError } from "@/lib/http";
+import { badRequestFromZod, conflict, internalServerError, jsonError } from "@/lib/http";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import {
@@ -44,93 +44,94 @@ function mapAttendance(
 }
 
 export async function GET(req: NextRequest) {
-  const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
-  const parsed = attendanceQuerySchema.safeParse(searchParams);
+  try {
+    const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
+    const parsed = attendanceQuerySchema.safeParse(searchParams);
 
-  if (!parsed.success) {
-    return badRequestFromZod(parsed.error);
+    if (!parsed.success) {
+      return badRequestFromZod(parsed.error);
+    }
+
+    const rangeFrom = parsed.data.date ?? parsed.data.from;
+    const rangeTo = parsed.data.date ?? parsed.data.to;
+
+    if (!rangeFrom && !rangeTo) {
+      return jsonError("date もしくは from/to のいずれかを指定してください。", 400);
+    }
+
+    const supabase = getSupabaseServerClient() as any;
+    let query = supabase
+      .from("attendance_requests")
+      .select(
+        "*, guardian:guardians(id, name, phone), student:students(id, name, grade)",
+      )
+      .order("requested_for", { ascending: true })
+      .order("student_id", { ascending: true });
+
+    if (rangeFrom) {
+      query = query.gte("requested_for", rangeFrom);
+    }
+    if (rangeTo) {
+      query = query.lte("requested_for", rangeTo);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("出欠一覧取得エラー:", error.message);
+      return jsonError("出欠一覧の取得に失敗しました。", 500);
+    }
+
+    return NextResponse.json((data ?? []).map(mapAttendance));
+  } catch (err) {
+    console.error("出欠一覧取得で予期しないエラー:", err);
+    return internalServerError();
   }
-
-  const supabase = getSupabaseServerClient() as any;
-  const rangeFrom = parsed.data.date ?? parsed.data.from;
-  const rangeTo = parsed.data.date ?? parsed.data.to;
-
-  if (!rangeFrom && !rangeTo) {
-    return jsonError("date もしくは from/to のいずれかを指定してください。", 400);
-  }
-
-  let query = supabase
-    .from("attendance_requests")
-    .select(
-      "*, guardian:guardians(id, name, phone), student:students(id, name, grade)",
-    )
-    .order("requested_for", { ascending: true })
-    .order("student_id", { ascending: true });
-
-  if (rangeFrom) {
-    query = query.gte("requested_for", rangeFrom);
-  }
-  if (rangeTo) {
-    query = query.lte("requested_for", rangeTo);
-  }
-
-  const { data, error, status } = await query;
-
-  if (error || !data) {
-    return jsonError(
-      `出欠一覧の取得に失敗しました: ${error?.message ?? "unknown"}`,
-      status || 500,
-    );
-  }
-
-  return NextResponse.json(data.map(mapAttendance));
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
-  const parsed = createAttendanceSchema.safeParse(body);
+  try {
+    const body = await req.json().catch(() => null);
+    const parsed = createAttendanceSchema.safeParse(body);
 
-  if (!parsed.success) {
-    return badRequestFromZod(parsed.error);
-  }
-
-  const supabase = getSupabaseServerClient() as any;
-  const { data, error, status } = await supabase
-    .from("attendance_requests")
-    .upsert(
-      [
-        {
-          guardian_id: parsed.data.guardianId,
-          student_id: parsed.data.studentId,
-          requested_for: parsed.data.requestedFor,
-          status: parsed.data.status,
-          reason: parsed.data.reason ?? null,
-        } satisfies Database["public"]["Tables"]["attendance_requests"]["Insert"],
-      ],
-      { onConflict: "student_id,requested_for" },
-    )
-    .select(
-      "*, guardian:guardians(id, name, phone), student:students(id, name, grade)",
-    )
-    .single();
-
-  if (error || !data) {
-    const isForeignKeyViolation = error?.code === "23503";
-    const isConflict = error?.code === "23505";
-    if (isForeignKeyViolation) {
-      return jsonError("guardianId または studentId が存在しません。", 400);
+    if (!parsed.success) {
+      return badRequestFromZod(parsed.error);
     }
-    if (isConflict) {
-      return jsonError(
-        "同じ児童と日付の出欠が既に存在し、更新に失敗しました。",
-        409,
-      );
-    }
-    return jsonError(
-      `出欠登録に失敗しました: ${error?.message ?? "unknown"}`,
-      status || 500,
-    );
-  }
 
-  return NextResponse.json(mapAttendance(data));
+    const supabase = getSupabaseServerClient() as any;
+    const { data, error } = await supabase
+      .from("attendance_requests")
+      .upsert(
+        [
+          {
+            guardian_id: parsed.data.guardianId,
+            student_id: parsed.data.studentId,
+            requested_for: parsed.data.requestedFor,
+            status: parsed.data.status,
+            reason: parsed.data.reason ?? null,
+          },
+        ],
+        { onConflict: "student_id,requested_for" },
+      )
+      .select(
+        "*, guardian:guardians(id, name, phone), student:students(id, name, grade)",
+      )
+      .single();
+
+    if (error) {
+      if (error.code === "23503") {
+        return jsonError("guardianId または studentId が存在しません。", 400);
+      }
+      if (error.code === "23505") {
+        return conflict("同じ児童と日付の出欠が既に存在し、更新に失敗しました。");
+      }
+      console.error("出欠登録エラー:", error.message);
+      return jsonError("出欠の登録に失敗しました。", 500);
+    }
+
+    return NextResponse.json(mapAttendance(data));
+  } catch (err) {
+    console.error("出欠登録で予期しないエラー:", err);
+    return internalServerError();
+  }
 }
