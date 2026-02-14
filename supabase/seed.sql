@@ -1,1 +1,5 @@
--- Seed data placeholder
+-- シードデータ
+-- ローカル開発用のサンプルデータを必要に応じて追加してください。
+-- 例:
+--   INSERT INTO students (name, grade) VALUES ('山田太郎', 3);
+--   INSERT INTO guardians (name, email, phone) VALUES ('山田花子', 'hanako@example.com', '090-1234-5678');
