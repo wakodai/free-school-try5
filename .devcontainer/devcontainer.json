@@ -9,9 +9,13 @@
       "version": "latest"
     }
   },
+  "mounts": [
+    "source=claude-config,target=/home/vscode/.claude,type=volume"
+  ],
   "containerEnv": {
     "CODEX_HOME": "${containerWorkspaceFolder}/.codex"
   },
+  "postCreateCommand": "npm install && curl -fsSL https://claude.ai/install.sh | bash",
   "forwardPorts": [
     3000,
     54321,
