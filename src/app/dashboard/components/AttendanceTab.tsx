@@ -67,7 +67,7 @@ export function AttendanceTab() {
       const from = `${month}-01`;
       const to = getLastDayOfMonth(month);
       const [studentsData, attendanceData] = await Promise.all([
-        listStudents(),
+        listStudents({ withGuardian: true }),
         fetchAttendance({ from, to }),
       ]);
       setStudents(studentsData);
@@ -174,43 +174,56 @@ export function AttendanceTab() {
                 </tr>
               </thead>
               <tbody>
-                {students.map((student, idx) => (
-                  <tr
-                    key={student.id}
-                    className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}
-                  >
-                    <td className="sticky left-0 z-10 min-w-[120px] border-r border-slate-200 px-3 py-2 text-sm font-medium text-slate-800"
-                      style={{ backgroundColor: idx % 2 === 0 ? "white" : "rgb(248 250 252 / 0.5)" }}
+                {students.map((student, idx) => {
+                  const prevGuardianId = idx > 0 ? students[idx - 1].guardian?.id : undefined;
+                  const currentGuardianId = student.guardian?.id;
+                  const isNewGroup = idx > 0 && currentGuardianId !== prevGuardianId;
+                  const isFirstInGroup = idx === 0 || isNewGroup;
+
+                  return (
+                    <tr
+                      key={student.id}
+                      className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}
                     >
-                      {student.name}
-                    </td>
-                    {days.map((d) => {
-                      const key = `${student.id}:${formatDate(d)}`;
-                      const status = attendanceMap.get(key);
-                      const dow = d.getDay();
-                      const bgCls =
-                        dow === 0
-                          ? "bg-rose-50/50"
-                          : dow === 6
-                            ? "bg-blue-50/50"
-                            : "";
-                      return (
-                        <td
-                          key={d.getDate()}
-                          className={`min-w-[40px] px-1 py-2 text-center ${bgCls}`}
-                        >
-                          {status ? (
-                            <span className={`text-base ${statusSymbol[status].cls}`}>
-                              {statusSymbol[status].label}
-                            </span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                      <td
+                        className={`sticky left-0 z-10 min-w-[120px] border-r border-slate-200 px-3 py-2 text-sm font-medium text-slate-800${isNewGroup ? " border-t-2 border-t-slate-300" : ""}`}
+                        style={{ backgroundColor: idx % 2 === 0 ? "white" : "rgb(248 250 252 / 0.5)" }}
+                      >
+                        {isFirstInGroup && student.guardian && (
+                          <div className="text-[10px] leading-tight text-slate-400">
+                            {student.guardian.name}
+                          </div>
+                        )}
+                        {student.name}
+                      </td>
+                      {days.map((d) => {
+                        const key = `${student.id}:${formatDate(d)}`;
+                        const status = attendanceMap.get(key);
+                        const dow = d.getDay();
+                        const bgCls =
+                          dow === 0
+                            ? "bg-rose-50/50"
+                            : dow === 6
+                              ? "bg-blue-50/50"
+                              : "";
+                        return (
+                          <td
+                            key={d.getDate()}
+                            className={`min-w-[40px] px-1 py-2 text-center ${bgCls}${isNewGroup ? " border-t-2 border-t-slate-300" : ""}`}
+                          >
+                            {status ? (
+                              <span className={`text-base ${statusSymbol[status].cls}`}>
+                                {statusSymbol[status].label}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

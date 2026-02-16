@@ -8,19 +8,22 @@ LINE 公式アカウント連携による「無料塾向けの出欠・連絡管
 - 児童の登録と保護者への紐付け
 - 出欠連絡の送信（児童 × 日付で upsert）
 - 保護者/スタッフ間のメッセージ送受信（inbound/outbound）
-- スタッフ向けダッシュボード（出欠一覧・統計・メッセージ）
+- スタッフ向けダッシュボード（出欠一覧・統計・メッセージ・管理）
+- 保護者・児童の一覧管理と児童の削除（退会処理）
 - LINE Messaging API の Webhook 連携（リッチメニューから出欠・状況確認・設定）
 
 ## 画面とルート
 
-- `/dashboard`：スタッフ向けダッシュボード（出欠・統計・メッセージ）
+- `/dashboard`：スタッフ向けダッシュボード（出欠管理・メッセージ・統計・管理）
 - `/api/line/webhook`：LINE Webhook エンドポイント
 
 ## API（Route Handlers）
 
 - `GET /api/guardians` / `POST /api/guardians`
 - `GET /api/students` / `POST /api/students`
-  - `GET` は `?guardianId=` で絞り込み可能
+  - `GET` は `?guardianId=` で絞り込み、`?withGuardian=true` で保護者情報付き取得
+- `DELETE /api/students/[id]`
+  - 児童の削除（出欠記録は CASCADE 削除、メッセージの student_id は NULL に設定）
 - `GET /api/attendance` / `POST /api/attendance`
   - `GET` は `date` または `from/to` を指定
 - `GET /api/attendance/stats`

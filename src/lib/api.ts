@@ -89,9 +89,21 @@ export function createStudent(input: CreateStudentInput) {
   });
 }
 
-export function listStudents(guardianId?: string) {
-  const qs = guardianId ? `?guardianId=${encodeURIComponent(guardianId)}` : "";
-  return apiFetch<Student[]>(`/api/students${qs}`);
+export function listStudents(opts?: {
+  guardianId?: string;
+  withGuardian?: boolean;
+}) {
+  const params = new URLSearchParams();
+  if (opts?.guardianId) params.set("guardianId", opts.guardianId);
+  if (opts?.withGuardian) params.set("withGuardian", "true");
+  const qs = params.toString();
+  return apiFetch<Student[]>(`/api/students${qs ? `?${qs}` : ""}`);
+}
+
+export function deleteStudent(id: string) {
+  return apiFetch<{ success: boolean }>(`/api/students/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 export function submitAttendance(input: CreateAttendanceInput) {

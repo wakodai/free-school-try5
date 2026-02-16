@@ -72,7 +72,7 @@ export function MessagesTab() {
     }
     const loadStudents = async () => {
       try {
-        const data = await listStudents(outboundGuardianId);
+        const data = await listStudents({ guardianId: outboundGuardianId });
         setStudentOptions(data);
         if (data.length > 0) {
           setOutboundStudentId(data[0].id);
