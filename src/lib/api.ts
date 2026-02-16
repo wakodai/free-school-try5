@@ -82,6 +82,13 @@ export function listGuardians() {
   return apiFetch<Guardian[]>("/api/guardians");
 }
 
+export function deleteGuardian(id: string) {
+  return apiFetch<{ success: boolean; deletedStudents: number }>(
+    `/api/guardians/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+}
+
 export function createStudent(input: CreateStudentInput) {
   return apiFetch<Student>("/api/students", {
     method: "POST",

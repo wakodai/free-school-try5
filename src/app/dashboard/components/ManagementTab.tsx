@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { listGuardians, listStudents, deleteStudent } from "@/lib/api";
+import { listGuardians, listStudents, deleteStudent, deleteGuardian } from "@/lib/api";
 import type { Guardian, Student } from "@/types";
 import { ListSkeleton } from "./Skeleton";
 import { ErrorAlert } from "./ErrorAlert";
@@ -37,13 +37,35 @@ export function ManagementTab() {
     loadData();
   }, [loadData]);
 
-  const handleDelete = async (student: Student) => {
+  const handleDeleteStudent = async (student: Student) => {
     if (!window.confirm(`${student.name}を削除しますか？出欠記録も削除されます。`)) {
       return;
     }
     setDeletingId(student.id);
     try {
       await deleteStudent(student.id);
+      await loadData();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "削除に失敗しました";
+      setError(message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteGuardian = async (guardian: Guardian) => {
+    const gStudents = guardianStudentsMap.get(guardian.id) ?? [];
+    const studentNames = gStudents.map((s) => s.name).join("、");
+    const msg = gStudents.length > 0
+      ? `${guardian.name}を削除しますか？\n紐づく生徒（${studentNames}）と出欠記録もすべて削除されます。`
+      : `${guardian.name}を削除しますか？`;
+    if (!window.confirm(msg)) {
+      return;
+    }
+    setDeletingId(guardian.id);
+    try {
+      await deleteGuardian(guardian.id);
       await loadData();
     } catch (err) {
       const message =
@@ -90,7 +112,8 @@ export function ManagementTab() {
                 guardian={guardian}
                 students={gStudents}
                 deletingId={deletingId}
-                onDelete={handleDelete}
+                onDeleteStudent={handleDeleteStudent}
+                onDeleteGuardian={handleDeleteGuardian}
               />
             );
           })}
@@ -103,7 +126,7 @@ export function ManagementTab() {
               <StudentTable
                 students={unassignedStudents}
                 deletingId={deletingId}
-                onDelete={handleDelete}
+                onDelete={handleDeleteStudent}
               />
             </div>
           )}
@@ -117,15 +140,18 @@ function GuardianCard({
   guardian,
   students,
   deletingId,
-  onDelete,
+  onDeleteStudent,
+  onDeleteGuardian,
 }: {
   guardian: Guardian;
   students: Student[];
   deletingId: string | null;
-  onDelete: (student: Student) => void;
+  onDeleteStudent: (student: Student) => void;
+  onDeleteGuardian: (guardian: Guardian) => void;
 }) {
   const createdDate = new Date(guardian.createdAt).toLocaleDateString("ja-JP");
   const lineLinked = !!guardian.lineUserId;
+  const isDeleting = deletingId === guardian.id;
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -148,13 +174,20 @@ function GuardianCard({
             <span>登録日: {createdDate}</span>
           </div>
         </div>
+        <button
+          onClick={() => onDeleteGuardian(guardian)}
+          disabled={isDeleting}
+          className="self-start rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-50 sm:self-auto"
+        >
+          {isDeleting ? "削除中..." : "保護者を削除"}
+        </button>
       </div>
 
       {students.length > 0 ? (
         <StudentTable
           students={students}
           deletingId={deletingId}
-          onDelete={onDelete}
+          onDelete={onDeleteStudent}
         />
       ) : (
         <p className="mt-3 text-xs text-slate-400">紐づく生徒はいません</p>

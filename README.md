@@ -20,6 +20,8 @@ LINE 公式アカウント連携による「無料塾向けの出欠・連絡管
 ## API（Route Handlers）
 
 - `GET /api/guardians` / `POST /api/guardians`
+- `DELETE /api/guardians/[id]`
+  - 保護者の削除（紐づく児童も全て削除される）
 - `GET /api/students` / `POST /api/students`
   - `GET` は `?guardianId=` で絞り込み、`?withGuardian=true` で保護者情報付き取得
 - `DELETE /api/students/[id]`

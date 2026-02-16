@@ -63,7 +63,9 @@ CI（`.github/workflows/ci.yml`）は `npm run lint` → `npm test` → `npm run
 
 `guardians` → `guardian_students` ← `students` の多対多構造。`attendance_requests` は `(student_id, requested_for)` にユニーク制約で upsert。`messages` は保護者⇔スタッフの双方向。
 
-**生徒削除時のカスケード動作**: `guardian_students` と `attendance_requests` は CASCADE 削除、`messages.student_id` は SET NULL。
+**削除時の動作**:
+- 生徒削除: `guardian_students` と `attendance_requests` は CASCADE 削除、`messages.student_id` は SET NULL
+- 保護者削除: 紐づく生徒を先に全削除してから保護者を削除。生徒削除で保護者が自動削除されることはない
 
 ### 認証
 
