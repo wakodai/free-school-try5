@@ -16,6 +16,7 @@ export interface Student {
   grade?: string | null;
   notes?: string | null;
   createdAt: string;
+  guardian?: { id: string; name: string; createdAt: string } | null;
 }
 
 export interface AttendanceRequest {

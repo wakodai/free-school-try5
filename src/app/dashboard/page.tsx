@@ -4,8 +4,9 @@ import { useState } from "react";
 import { AttendanceTab } from "./components/AttendanceTab";
 import { MessagesTab } from "./components/MessagesTab";
 import { StatsTab } from "./components/StatsTab";
+import { ManagementTab } from "./components/ManagementTab";
 
-type TabId = "attendance" | "messages" | "stats";
+type TabId = "attendance" | "messages" | "stats" | "management";
 
 interface Tab {
   id: TabId;
@@ -16,6 +17,7 @@ const tabs: Tab[] = [
   { id: "attendance", label: "出欠管理" },
   { id: "messages", label: "メッセージ" },
   { id: "stats", label: "統計" },
+  { id: "management", label: "管理" },
 ];
 
 export default function DashboardPage() {
@@ -54,6 +56,7 @@ export default function DashboardPage() {
         {activeTab === "attendance" && <AttendanceTab />}
         {activeTab === "messages" && <MessagesTab />}
         {activeTab === "stats" && <StatsTab />}
+        {activeTab === "management" && <ManagementTab />}
       </div>
     </div>
   );

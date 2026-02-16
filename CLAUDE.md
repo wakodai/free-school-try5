@@ -43,7 +43,13 @@ CI（`.github/workflows/ci.yml`）は `npm run lint` → `npm test` → `npm run
 
 | パス | 対象 | 説明 |
 |------|------|------|
-| `/dashboard` | スタッフ | 出欠一覧・統計・メッセージ管理 |
+| `/dashboard` | スタッフ | 出欠管理・メッセージ・統計・管理（4タブ構成） |
+
+**ダッシュボードタブ**:
+- **出欠管理**: 月間テーブルビュー。生徒を保護者でグルーピングし、保護者の登録日（古い順）でソート
+- **メッセージ**: 保護者⇔スタッフの双方向メッセージ管理
+- **統計**: 月間＋全期間の出欠統計
+- **管理**: 保護者・生徒の一覧表示と生徒削除機能（退会処理用）
 
 ### LINE Webhook（最も複雑な部分）
 
@@ -56,6 +62,10 @@ CI（`.github/workflows/ci.yml`）は `npm run lint` → `npm test` → `npm run
 ### DB テーブル
 
 `guardians` → `guardian_students` ← `students` の多対多構造。`attendance_requests` は `(student_id, requested_for)` にユニーク制約で upsert。`messages` は保護者⇔スタッフの双方向。
+
+**削除時の動作**:
+- 生徒削除: `guardian_students` と `attendance_requests` は CASCADE 削除、`messages.student_id` は SET NULL
+- 保護者削除: 紐づく生徒を先に全削除してから保護者を削除。生徒削除で保護者が自動削除されることはない
 
 ### 認証
 
