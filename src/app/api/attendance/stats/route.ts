@@ -32,10 +32,6 @@ export async function GET(req: NextRequest) {
     const rangeFrom = parsed.data.date ?? parsed.data.from;
     const rangeTo = parsed.data.date ?? parsed.data.to;
 
-    if (!rangeFrom && !rangeTo) {
-      return jsonError("date もしくは from/to のいずれかを指定してください。", 400);
-    }
-
     const supabase = getSupabaseServerClient() as any;
     let query = supabase
       .from("attendance_requests")
