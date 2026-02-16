@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head:*)",
+      "Bash(git -C /Users/wakodai/git-repository/free-school-try5 log --oneline)",
+      "Bash(npm run lint:*)",
+      "Bash(npm test:*)",
+      "Bash(npm i:*)",
+      "WebSearch"
+    ]
+  }
+}
